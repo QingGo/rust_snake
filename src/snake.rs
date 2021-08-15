@@ -1,10 +1,8 @@
 extern crate rand;
 use rand::Rng;
 
-#[derive(Debug)]
-struct Pair(i32, i32);
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum Direction {
     UP,
     DOWN,
@@ -17,6 +15,7 @@ pub struct Snake {
     max_width: u32,
     max_height: u32,
     body: Vec<(i32, i32)>,
+    pre_direction: Direction,
     direction: Direction,
     food_pos: (i32, i32)
 }
@@ -33,6 +32,7 @@ impl Snake {
             max_height: max_height,
             body: body,
             direction: Direction::RIGHT,
+            pre_direction: Direction::RIGHT,
             food_pos: (0,0),
         };
         snake.generate_food();
@@ -40,20 +40,8 @@ impl Snake {
     }
 
     pub fn change_direction(&mut self, direction: Direction) {
-        // 禁止开倒车
-        if matches!(self.direction, Direction::UP) && matches!(direction, Direction::DOWN){
-            return
-        }
-        if matches!(self.direction, Direction::DOWN) && matches!(direction, Direction::UP){
-            return
-        }
-        if matches!(self.direction, Direction::LEFT) && matches!(direction, Direction::RIGHT){
-            return
-        }
-        if matches!(self.direction, Direction::RIGHT) && matches!(direction, Direction::LEFT){
-            return
-        }
-        self.direction = direction;
+        // 每次更新以更新间隔里最后收到的输入为准
+        self.pre_direction = direction;
     }
 
     pub fn get_body(&self) -> &Vec<(i32, i32)> {
@@ -61,6 +49,10 @@ impl Snake {
     }
 
     pub fn take_step(&mut self) {
+        // 转向
+        if self.check_change_direction_legal(){
+            self.direction = self.pre_direction;
+        }
         let mut new_pos = self.head_position();
         match self.direction {
             Direction::UP => new_pos.1 -= 1,
@@ -95,6 +87,28 @@ impl Snake {
     fn head_position(&self) -> (i32, i32) {
         self.body[self.body.len() - 1]
     }
+
+    // 防止 take_step 间方向改了多次
+    fn check_change_direction_legal(&self) -> bool{
+        // 长度为 1 时不限制
+        if self.body.len() == 1{
+            return true;
+        }
+        // 长度大于 1 就不能开倒车
+        if matches!(self.direction, Direction::UP) && matches!(self.pre_direction, Direction::DOWN){
+            return false;
+        }
+        if matches!(self.direction, Direction::DOWN) && matches!(self.pre_direction, Direction::UP){
+            return false;
+        }
+        if matches!(self.direction, Direction::LEFT) && matches!(self.pre_direction, Direction::RIGHT){
+            return false;
+        }
+        if matches!(self.direction, Direction::RIGHT) && matches!(self.pre_direction, Direction::LEFT){
+            return false;
+        }
+        true
+    } 
 
     pub fn check_game_over(&self) -> bool{
         let head = self.head_position();
